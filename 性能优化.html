@@ -1147,9 +1147,186 @@ resolve: {
 /src/a 
 </code></pre></p>
 <h5 id="3-external-script"><a name="user-content-3-external-script" href="#3-external-script" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>3. <em>external: 把外部依赖通过 <code>&lt;script&gt;</code> 外链脚本引入</em></h5>
-<p>节省构建时间, 缩小最终包的体积, cdn加速访问速度<br />
-<em> alias 和 noParse 配合使用, 使指定 module 跳过简析直接进入bundle<br />
-</em> dllplugin 把第三方库提前编译并打包到本地, 不用每次都简析<br />
-<em> happypack 多进程运行 loader &amp; plugin<br />
-</em> webpack-uglify-parallel 代替 UglifyJsPlugin 多核并行压缩<br />
-* 打开缓存使用 增量构建(cacheDirectory)</p></article></body></html>
+<p>html文件中引入库<br />
+<pre><code class="html">&lt;html&gt;
+    ...
+    &lt;script src=&quot;../jquery.1.11.1.min.js&quot;&gt;&lt;/script&gt;
+    ...
+&lt;/html&gt;
+</code></pre><br />
+webpack.config.js 中配置 externals<br />
+<pre><code class="javascript"># webpack.config.js
+module.exports = {
+    ...
+    externals: {
+        'jquery': 'jQuery', // 值为全局变量, key为可以直接引用的包名
+    }
+    ...
+}
+</code></pre><br />
+把JS全局变量 映射到 指定字符串 &lsquo;jquery&rsquo;, 在需要引用jquery的模块中<br />
+<pre><code class="vue">...
+import $ from 'jquery';
+...
+</code></pre></p>
+<p>可以有效减少打包体积, 提升打包速度, 节省构建时间, 缩小最终包的体积, cdn加速访问速度</p>
+<h5 id="4-alias-noparse"><a name="user-content-4-alias-noparse" href="#4-alias-noparse" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>4. <em>alias 和 noParse</em></h5>
+<p>如果某些第三方库没有必须打包入 bundle 中, 可以通过 noParse 让其跳过解析直接进入bundle <br />
+<pre><code class="javascript"># webpack.config.js
+module.exports = {
+    ...
+    resolve: {
+        alias: {
+            'vue': 'vue/dist/vue.min'
+        }
+    },
+    noParse: [ 'vue' ]
+    ...
+};
+</code></pre></p>
+<h5 id="5-dllplugin"><a name="user-content-5-dllplugin" href="#5-dllplugin" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>5. <em><a href="http://webpack.github.io/docs/list-of-plugins.html#dllplugin">dllplugin</a></em></h5>
+<p>deps 中也引用了大量的 npm 包，而这些包在正常的开发过程中并不会进行修改，但是在每一次<br />
+构建过程中却需要反复的将其分析，那么可以将这些依赖的包 一次性打包到本地, 直接外链.</p>
+<p>dll.config.js<br />
+<pre><code>var path = require('path');
+var webpack = require('webpack');
+
+module.exports = {
+    entry: {
+        vendor: ['vue', 'vue-router']
+    },
+    output: {
+        path: path.join(__dirname, 'dist'),
+        filename: '[name].dll.js',
+        /**
+         * output.library
+         * 将会定义为 window.${output.library}
+         * 在这次的例子中，将会定义为`window.vendor_library`
+         */
+        library: '[name]_library'
+    },
+    plugins: [
+        new webpack.DllPlugin({
+            /**
+             * path
+             * 定义 manifest 文件生成的位置
+             * [name]的部分由entry的名字替换
+             */
+            path: path.join(__dirname, 'dist', '[name]-manifest.json'),
+            /**
+             * name
+             * dll bundle 输出到那个全局变量上
+             * 和 output.library 一样即可。 
+             */
+            name: '[name]_library'
+        })
+    ]
+};
+</code></pre></p>
+<p>生成 manifest.json 文件<br />
+<pre><code>{
+    &quot;name&quot;: &quot;vendor_library&quot;,
+    &quot;content&quot;: {
+        &quot;./node_modules/process/browser.js&quot;: {
+            &quot;id&quot;: 0,
+            &quot;meta&quot;: {}
+        },
+        &quot;./node_modules/vue-router/dist/vue-router.esm.js&quot;: {
+            &quot;id&quot;: 1,
+            &quot;meta&quot;: {
+                &quot;harmonyModule&quot;: true
+            },
+            &quot;exports&quot;: [
+                &quot;default&quot;
+            ]
+        },
+        &quot;./node_modules/vue/dist/vue.runtime.esm.js&quot;: {
+            &quot;id&quot;: 2,
+            &quot;meta&quot;: {
+                &quot;harmonyModule&quot;: true
+            },
+            &quot;exports&quot;: [
+                &quot;default&quot;
+            ]
+        },
+        &quot;./node_modules/webpack/buildin/global.js&quot;: {
+            &quot;id&quot;: 3,
+            &quot;meta&quot;: {}
+        }
+    }
+}
+</code></pre></p>
+<p>webpack.config.js<br />
+<pre><code>var path = require('path');
+var webpack = require('webpack');
+
+module.exports = {
+    entry: {
+        'dll-user': ['./index.js']
+    },
+    output: {
+        path: path.join(__dirname, 'dist'),
+        filename: '[name].bundle.js'
+    },
+    // ----在这里追加----
+    plugins: [
+        new webpack.DllReferencePlugin({
+            context: __dirname,
+            /**
+             * 在这里引入 manifest 文件
+             */
+            manifest: require('./dist/vendor-manifest.json')
+        })
+    ]
+    // ----在这里追加----
+};
+</code></pre></p>
+<h5 id="6-happypackhttpsgithubcomamirehhappypack-loader-plugin"><a name="user-content-6-happypackhttpsgithubcomamirehhappypack-loader-plugin" href="#6-happypackhttpsgithubcomamirehhappypack-loader-plugin" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>6. <em>(happypack)[<a href="https://github.com/amireh/happypack"><a href="https://github.com/amireh/happypack">https://github.com/amireh/happypack</a></a>] 多进程运行 loader &amp; plugin</em></h5>
+<pre><code># webpack.config.js
+module.exports = {
+    ...
+    module: {
+        rules: {
+            test: /.js$/,
+            loaders: [ 'happypack/loader?id=js' ],
+            include: [resolve('src'), resolve('test'), resolve('node_modules/iview') ],
+        },
+        {
+            test: /\.vue$/,
+            loaders: [ 'happypack/loader?id=vue' ],
+            // options: vueLoaderConfig,
+            include: [resolve('src'), resolve('test'), resolve('node_modules/iview') ],
+        },
+    },
+    ...
+    plugins: [
+        new HappyPack({
+            id: 'js',
+            threadPool: happyThreadPool,
+            loaders: [ 'babel-loader' ]
+        }),
+        new HappyPack({
+            id: 'vue',
+            threadPool: happyThreadPool,
+            loaders: [ 'vue-loader' ]
+        })
+    ]
+    ...
+}
+</code></pre>
+
+<h5 id="7-webpack-uglify-parallel-uglifyjsplugin"><a name="user-content-7-webpack-uglify-parallel-uglifyjsplugin" href="#7-webpack-uglify-parallel-uglifyjsplugin" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>7. <em>webpack-uglify-parallel 代替 UglifyJsPlugin 多核并行压缩</em></h5>
+<p>webpack提供的UglifyJS插件由于采用单线程压缩，速度很慢<br />
+webpack-parallel-uglify-plugin插件可以并行运行UglifyJS插件，这可以有效减少构建时间</p>
+<h5 id="8-cachedirectory"><a name="user-content-8-cachedirectory" href="#8-cachedirectory" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>8. <em>打开缓存使用 增量构建(cacheDirectory)</em></h5>
+<pre><code># webpack.config.js
+module.exports = {
+    module: {
+        {
+            test: /\.ejs$/,
+            loader: 'babel-loader?cacheDirectory',
+            query: {compact: false}
+        },
+    },
+}
+</code></pre></article></body></html>
