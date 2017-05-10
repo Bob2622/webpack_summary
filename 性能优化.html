@@ -1018,52 +1018,138 @@ body .markdown-body
 <hr />
 <p>T(总) = T(依赖下载) + T(webpack构建) <br />
 T(webpack构建) = T(loader) + T(plugins)</p>
-<h4 id="t"><a name="user-content-t" href="#t" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>T(依赖下载)</h4>
-<hr />
-<p>使用 pnpm 和 npminstall 加速依赖包下载  <br />
-使用最新版本 npm 和 npminstall 相比旧版本 <br />
-依赖安装时长可以达到原来的 <strong>1/10</strong></p>
-<h4 id="_2"><a name="user-content-_2" href="#_2" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>项目开发习惯</h4>
+<h3 id="webpack"><a name="user-content-webpack" href="#webpack" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>webpack分析工具</h3>
 <hr />
 <ul>
-<li>废弃依赖要及时删除</li>
-<li>对lib进行按需引入</li>
-<li>在组件中尽量不要引入大型css文件, 会造成重复打包</li>
+<li><a href="http://webpack.github.com/analyse">在线分析网站</a>   </li>
+</ul>
+<pre><code># 生成分析数据
+webpack --profile --json &gt; stats.json
+</code></pre>
+
+<ul>
+<li><a href="https://github.com/chrisbateman/webpack-visualizer">webpack-visualizer</a>  </li>
+</ul>
+<pre><code># 安装
+npm install webpack-visualizer-plugin
+</code></pre>
+
+<pre><code># webpack.conf.js
+var Visualizer = require('webpack-visualizer-plugin')
+...
+plugins: [new Visualizer()],
+...
+</code></pre>
+
+<p><img src="/Users/a2622/repository/webpack_summary/imgs/1.png" style="width:100%;"></img></p>
+<p><a href="/Users/a2622/repository/webpack_summary/demos/stats.html">example</a></p>
+<h3 id="t"><a name="user-content-t" href="#t" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>T(依赖下载)</h3>
+<hr />
+<p>使用 <a href="https://github.com/pnpm/pnpm">pnpm</a> 和 <a href="https://github.com/cnpm/npminstall">npminstall</a> 加速依赖包下载  <br />
+使用最新版本 npm 和 npminstall 相比旧版本 <br />
+依赖安装时长可以达到原来的 <strong>1/10</strong></p>
+<h3 id="_2"><a name="user-content-_2" href="#_2" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>项目开发习惯</h3>
+<hr />
+<ul>
+<li>业务变化快, 人员更替表频繁, 造成业务中并没有使用到 xx  <br />
+  要及时删除废弃依赖<br />
+<pre><code>import xx from 'xxx';
+</code></pre></li>
+<li>对lib进行按需引入<br />
+例如 echarts 项目中仅仅使用了部分图表, 可以只引入需要的模块<br />
+<pre><code>import xx from 'echarts/lib/echarts'; // 主模块
+import xx from 'echarts/lib/bar';  // 柱状图
+</code></pre></li>
+<li>在组件中尽量不要引入大型css文件, 会造成重复打包<br />
+<pre><code>...
+&lt;style&gt;
+@import 'bootstrap/less/**';
+&lt;/style&gt;
+...
+</code></pre></li>
 <li>尽可能不要引入未es5化的第三方库</li>
 </ul>
-<h4 id="webpack"><a name="user-content-webpack" href="#webpack" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>引入webpack第三方优化插件</h4>
+<h3 id="webpack_1"><a name="user-content-webpack_1" href="#webpack_1" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>引入webpack第三方优化插件</h3>
 <hr />
 <ul>
 <li>css代码中引入第三方样式时, 由于第三方样式依赖很多css, 造成臃肿<br />
   tree-shaking特性</li>
 </ul>
-<h4 id="loader"><a name="user-content-loader" href="#loader" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>loader</h4>
+<h3 id="loader"><a name="user-content-loader" href="#loader" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>loader</h3>
 <hr />
 <ul>
 <li>css-loader 在0.14.5版本之后压缩耗时增加了几十倍, 目前尚未解决</li>
 <li>babel-loader可以缓存处理过的模块，对于没有修改过的文件不会再重新编译，   <br />
   cacheDirectory 有着2倍以上的速度提升，这对于rebuild 有着非常大的性能提升。</li>
 </ul>
-<h4 id="webpack_1"><a name="user-content-webpack_1" href="#webpack_1" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>webpack自身</h4>
+<h3 id="webpack_2"><a name="user-content-webpack_2" href="#webpack_2" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>webpack自身</h3>
 <hr />
-<ul>
-<li>CommoonsChunkPlugin 打包共同依赖的代码, 防止重复打包</li>
-<li>resolve.root vs resolve.modulesDirectories  <br />
-  绝对路径 vs 相对路径 &mdash; 相对路径会一层一层的往上找, 浪费时间</li>
-<li>external: 把外部依赖通过<code>&lt;script&gt;</code>外链脚本引入.  <br />
-  节省构建时间, 缩小最终包的体积, cdn加速访问速度</li>
-<li>alias 和 noParse 配合使用, 使指定 module 跳过简析直接进入bundle</li>
-<li>dllplugin 把第三方库提前编译并打包到本地, 不用每次都简析</li>
-<li>happypack 多进程运行 loader &amp; plugin</li>
-<li>webpack-uglify-parallel 代替 UglifyJsPlugin 多核并行压缩</li>
-<li>打开缓存使用 增量构建(cacheDirectory)</li>
-</ul>
-<h4 id="webpack_2"><a name="user-content-webpack_2" href="#webpack_2" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>webpack分析工具</h4>
-<hr />
-<ul>
-<li><a href="http://webpack.github.com/analyse">在线分析网站</a> <br />
-<pre><code>    # 生成分析数据
-    webpack --profile --json &gt; stats.json
+<h5 id="1-commoonschunkplugin"><a name="user-content-1-commoonschunkplugin" href="#1-commoonschunkplugin" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>1. <em>CommoonsChunkPlugin 打包共同依赖的代码, 防止重复打包</em></h5>
+<ol>
+<li>抽取所有模块公共部分<br />
+<pre><code class="javascript">webpackConfig.plugins.push( 
+    new webpack.optimize.CommonsChunkPlugin('common', 'common.js')
+)
 </code></pre></li>
-<li><a href="https://github.com/chrisbateman/webpack-visualizer">webpack-visualizer</a></li>
-</ul></article></body></html>
+<li>抽取指定重复引用模块<br />
+<pre><code>webpackConfig.plugins.push(
+    new webpack.optimize.CommonsChunkPlugin({
+        name: &quot;commonOfAll&quot;,
+        minChunks: 3
+    })
+)
+</code></pre></li>
+<li>抽取指定分支的公共模块<br />
+<pre><code>webpackConfig.plugins.push(
+    new webpack.optimize.CommonsChunkPlugin({
+        name: &quot;commonOfAB&quot;,
+        chunks: ['entryA', 'entryB']
+    })
+)
+</code></pre></li>
+<li>抽取指定的模块<br />
+<pre><code>webpackConfig.entry = {
+    vendor: ['jquery']
+}
+webpackConfig.plugins.push(
+    new CommonsChunkPlugin({
+        name: &quot;vendor&quot;,
+        minChunks: Infinity,
+    })
+)
+</code></pre></li>
+</ol>
+<h5 id="2-resolveroot-vs-resolvemodulesdirectories"><a name="user-content-2-resolveroot-vs-resolvemodulesdirectories" href="#2-resolveroot-vs-resolvemodulesdirectories" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>2. <em>resolve.root vs resolve.modulesDirectories</em></h5>
+<p>root 和 moduledirectories 从用法上来看可以互相替代, 但是由于<br />
+modulesDirectories是相对路径, 所以会比 root 多 parse 很多路径</p>
+<pre><code class="javascript">resolve: {
+    root: path.resolve('src/node_modules'),
+    extensions: ['', '.js', '.jsx']
+},
+resolve: {
+    modulesDirectories: ['node_modules', './src'],
+    extensions: ['', '.js', '.jsx']
+},
+</code></pre>
+
+<p>在某个组件中引用a组件后</p>
+<p>root 的解析路径<br />
+<pre><code class="javascript">./src/node_modules/a
+</code></pre></p>
+<p>modulesDirectories 的解析方式<br />
+<pre><code>/some/folder/structure/node_modules/a
+/some/folder/structure/src/a
+/some/folder/node_modules/a
+/some/folder/src/a
+/some/node_modules/a
+/some/src/a
+/node_modules/a
+/src/a 
+</code></pre></p>
+<h5 id="3-external-script"><a name="user-content-3-external-script" href="#3-external-script" class="headeranchor-link" aria-hidden="true"><span class="headeranchor"></span></a>3. <em>external: 把外部依赖通过 <code>&lt;script&gt;</code> 外链脚本引入</em></h5>
+<p>节省构建时间, 缩小最终包的体积, cdn加速访问速度<br />
+<em> alias 和 noParse 配合使用, 使指定 module 跳过简析直接进入bundle<br />
+</em> dllplugin 把第三方库提前编译并打包到本地, 不用每次都简析<br />
+<em> happypack 多进程运行 loader &amp; plugin<br />
+</em> webpack-uglify-parallel 代替 UglifyJsPlugin 多核并行压缩<br />
+* 打开缓存使用 增量构建(cacheDirectory)</p></article></body></html>
